@@ -4,6 +4,8 @@ import { useAppState } from '../state/AppState';
 import AuthModal from './AuthModal';
 import StockPanel from './StockPanel';
 
+const SHOW_BUILDER = import.meta.env.VITE_SHOW_BUILDER === 'true';
+
 export default function Layout() {
   const { isSignedIn, user, signOut, openAuthModal, stockPanelTicker } = useAppState();
   const location = useLocation();
@@ -20,21 +22,27 @@ export default function Layout() {
         <SideLink to="/me" icon="★" label="My Plays" />
         <SideLink to="/me/watchlist" icon="◐" label="Watchlist" />
 
-        <div className="nav-section">Build</div>
-        <SideLink to="/create" icon="+" label="Create a Play" />
+        {SHOW_BUILDER ? (
+          <>
+            <div className="nav-section">Build</div>
+            <SideLink to="/create" icon="+" label="Create a Play" />
+          </>
+        ) : null}
 
         <div className="nav-section">Account</div>
         <SideLink to="/me/settings" icon="⚙" label="Settings" />
 
-        <button
-          className="nav-cta"
-          onClick={() => {
-            if (isSignedIn) navigate('/create');
-            else openAuthModal();
-          }}
-        >
-          + New Play
-        </button>
+        {SHOW_BUILDER ? (
+          <button
+            className="nav-cta"
+            onClick={() => {
+              if (isSignedIn) navigate('/create');
+              else openAuthModal();
+            }}
+          >
+            + New Play
+          </button>
+        ) : null}
       </nav>
 
       <main>
