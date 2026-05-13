@@ -218,7 +218,7 @@ export default function Settings() {
             className="danger-btn"
             onClick={() =>
               alert(
-                'Account deletion is not yet self-serve. Email support@plays.example to request deletion.'
+                'Account deletion is not yet self-serve. Email michael.job.gb@gmail.com to request deletion.'
               )
             }
           >

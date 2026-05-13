@@ -107,7 +107,7 @@ export default function Terms() {
 
       <h3>14. Contact</h3>
       <p>
-        Questions about these Terms? Email <b>support@plays.example</b> (placeholder — replace
+        Questions about these Terms? Email <b>michael.job.gb@gmail.com</b> (placeholder — replace
         with your real address before launch).
       </p>
     </LegalLayout>

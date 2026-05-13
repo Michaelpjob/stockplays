@@ -56,7 +56,7 @@ export default function Privacy() {
       <p>
         Depending on your jurisdiction (GDPR, CCPA, others) you have rights to access, correct,
         export, or delete your personal information. To exercise these rights, email{' '}
-        <b>privacy@plays.example</b> (placeholder).
+        <b>michael.job.gb@gmail.com</b> (placeholder).
       </p>
       <p>
         You can export all of your data from the Settings page. You can delete your account
@@ -91,7 +91,7 @@ export default function Privacy() {
 
       <h3>9. Contact</h3>
       <p>
-        Privacy questions: <b>privacy@plays.example</b> (placeholder).
+        Privacy questions: <b>michael.job.gb@gmail.com</b> (placeholder).
       </p>
     </LegalLayout>
   );
