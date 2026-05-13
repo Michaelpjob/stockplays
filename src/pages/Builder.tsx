@@ -45,6 +45,17 @@ export default function Builder() {
       .slice(0, 8);
   }, [search, holdings]);
 
+  // If the user typed something that looks like a ticker and nothing matches
+  // in the seeded universe, offer to add it as a "custom" holding. Price /
+  // fundamentals will show as "—" until the stocks row is populated.
+  const customTicker = useMemo(() => {
+    const q = search.trim().toUpperCase();
+    if (!/^[A-Z]{1,5}(\.[A-Z])?$/.test(q)) return null;
+    if (holdings.find((h) => h.ticker === q)) return null;
+    if (STOCK_UNIVERSE[q]) return null;
+    return q;
+  }, [search, holdings]);
+
   function addHolding(ticker: string) {
     const remaining = Math.max(0, 100 - total);
     const initial = Math.min(10, remaining || 10);
@@ -199,7 +210,7 @@ export default function Builder() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              {results.length ? (
+              {results.length || customTicker ? (
                 <div className="search-results">
                   {results.map((s) => (
                     <button
@@ -214,8 +225,24 @@ export default function Builder() {
                       <span className="tip">{fmtUsd(s.price)}</span>
                     </button>
                   ))}
+                  {customTicker ? (
+                    <button
+                      className="search-result"
+                      onClick={() => addHolding(customTicker)}
+                    >
+                      <div>
+                        <span className="ticker-pill-sym">{customTicker}</span>{' '}
+                        <span className="ticker-pill-name">+ Add as custom ticker</span>
+                      </div>
+                      <span className="tip">No price data</span>
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
+              <div className="tip">
+                Type a ticker (e.g. NFLX, DIS) — any US-listed symbol works. Price + fundamentals
+                show "—" until that ticker is loaded into the stocks table.
+              </div>
             </div>
 
             {holdings.length === 0 ? (
