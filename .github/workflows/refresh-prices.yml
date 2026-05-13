@@ -1,0 +1,27 @@
+name: Refresh prices and recompute performance
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 06:00 UTC every weekday — well after US market close (21:00 UTC).
+    # Polygon's adjusted-close data is finalized by then.
+    - cron: '0 6 * * 1-5'
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pg
+        run: npm install --no-save --no-audit --no-fund pg@8.13.0
+
+      - name: Run refresh
+        env:
+          POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/refresh-prices.mjs
