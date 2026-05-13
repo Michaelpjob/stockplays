@@ -30,8 +30,8 @@ export function useStockLookup(ticker: string | null): State {
 }
 
 // Debounced version for autocomplete fields.
-export function useDebouncedStockLookup(input: string, delayMs = 300): State {
-  const [debounced, setDebounced] = useState(input);
+export function useDebouncedStockLookup(input: string | null, delayMs = 300): State {
+  const [debounced, setDebounced] = useState<string | null>(input);
   useEffect(() => {
     const id = setTimeout(() => setDebounced(input), delayMs);
     return () => clearTimeout(id);
