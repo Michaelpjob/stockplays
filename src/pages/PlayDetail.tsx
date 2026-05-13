@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAppState } from '../state/AppState';
+import { supabase } from '../lib/supabase';
 import { fmtCount, fmtDate, fmtPct, fmtRelative, fmtSince } from '../lib/format';
 import SubscribeModal from '../components/SubscribeModal';
 import Sparkline from '../components/Sparkline';
@@ -258,7 +259,12 @@ export default function PlayDetail() {
         </div>
       ) : null}
 
-      <Discussion items={play.discussion} commentVotes={commentVotes} onVote={voteComment} />
+      <Discussion
+        playId={play.id}
+        items={play.discussion}
+        commentVotes={commentVotes}
+        onVote={voteComment}
+      />
 
       <SubscribeModal play={showSubscribe ? play : null} onClose={() => setShowSubscribe(false)} />
     </>
@@ -289,24 +295,75 @@ function winValueFor(ytd: number, inceptionISO: string): number {
 }
 
 interface DiscussionProps {
+  playId: string;
   items: DiscussionItem[];
   commentVotes: Record<string, 1 | -1>;
   onVote: (id: string, vote: 1 | -1) => void;
 }
 
-function Discussion({ items, commentVotes, onVote }: DiscussionProps) {
+function Discussion({ playId, items: initialItems, commentVotes, onVote }: DiscussionProps) {
+  const { user, isSignedIn, openAuthModal, profileNeedsSetup } = useAppState();
+  const [items, setItems] = useState<DiscussionItem[]>(initialItems);
+  const [draft, setDraft] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [reporting, setReporting] = useState<DiscussionItem | null>(null);
 
-  if (items.length === 0) {
-    return (
-      <div className="panel">
-        <div className="discussion-header">
-          <h3>Discussion</h3>
-        </div>
-        <div className="empty-state">No comments yet. Be the first to start the thread.</div>
-      </div>
-    );
+  useEffect(() => {
+    setItems(initialItems);
+  }, [initialItems]);
+
+  const canCompose = isSignedIn && !profileNeedsSetup;
+  const composeHint = !isSignedIn
+    ? 'Sign in to comment'
+    : profileNeedsSetup
+    ? 'Pick a handle first'
+    : 'Add a comment, ask a question, or share data the curator missed.';
+
+  async function submit() {
+    if (!isSignedIn) {
+      openAuthModal();
+      return;
+    }
+    if (!user || !supabase) return;
+    const body = draft.trim();
+    if (body.length === 0 || body.length > 500) return;
+    setSubmitting(true);
+    const { data, error } = await supabase
+      .from('discussion_items')
+      .insert({
+        play_id: playId,
+        author_id: user.id,
+        type: 'comment',
+        body,
+      })
+      .select(
+        'id, type, body, title, pinned, upvotes, downvotes, reply_count, created_at'
+      )
+      .single();
+    setSubmitting(false);
+    if (error) {
+      alert(`Failed to post: ${error.message}`);
+      return;
+    }
+    setItems((prev) => [
+      {
+        id: data.id,
+        type: 'comment',
+        author: user.handle,
+        authorDisplay: user.displayName,
+        title: undefined,
+        pinned: false,
+        body: data.body,
+        date: data.created_at,
+        upvotes: 0,
+        downvotes: 0,
+        replies: 0,
+      },
+      ...prev,
+    ]);
+    setDraft('');
   }
+
   return (
     <div className="panel">
       <ReportModal
@@ -323,8 +380,45 @@ function Discussion({ items, commentVotes, onVote }: DiscussionProps) {
         onClose={() => setReporting(null)}
       />
       <div className="discussion-header">
-        <h3>Discussion · {items.length}</h3>
+        <h3>Discussion{items.length ? ` · ${items.length}` : ''}</h3>
       </div>
+
+      <div
+        className="discussion-compose"
+        onClick={() => {
+          if (!isSignedIn) openAuthModal();
+        }}
+        style={{ cursor: !isSignedIn ? 'pointer' : 'default' }}
+      >
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={composeHint}
+          disabled={!canCompose || submitting}
+          maxLength={500}
+          rows={2}
+        />
+        <div className="discussion-compose-actions">
+          <span className="compose-tip">
+            <span>{draft.length}</span> / 500 · keep it on-topic
+          </span>
+          <button
+            className="btn btn-primary"
+            style={{ flex: '0 0 auto', padding: '7px 18px', fontSize: 12.5 }}
+            onClick={submit}
+            disabled={!canCompose || submitting || draft.trim().length === 0}
+          >
+            {submitting ? 'Posting…' : 'Post'}
+          </button>
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="empty-state" style={{ marginTop: 0 }}>
+          No comments yet. Be the first to start the thread.
+        </div>
+      ) : null}
+
       <div className="discussion-items">
         {items.map((it) => {
           const userVote = commentVotes[it.id] ?? 0;
