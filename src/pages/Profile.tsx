@@ -1,30 +1,70 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import PlayCard from '../components/PlayCard';
 import SubscribeModal from '../components/SubscribeModal';
 import { fmtDate } from '../lib/format';
 import { useAppState } from '../state/AppState';
-import type { Play, Profile } from '../lib/types';
+import { fetchProfileByHandle } from '../lib/profileQueries';
+import { isDemoMode } from '../lib/supabase';
+import { usePageTitle } from '../lib/usePageTitle';
+import type { Play, Profile as ProfileT } from '../lib/types';
 
 export default function Profile() {
   const { handle } = useParams();
   const { plays, user } = useAppState();
   const isOwn = user?.handle === handle;
 
+  const [profile, setProfile] = useState<ProfileT | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      if (isOwn && user) {
+        setProfile(user);
+        setLoading(false);
+        return;
+      }
+      if (!handle) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+      if (isDemoMode) {
+        setProfile(firstAuthorFromPlays(plays, handle));
+        setLoading(false);
+        return;
+      }
+      const p = await fetchProfileByHandle(handle);
+      if (cancelled) return;
+      setProfile(p ?? firstAuthorFromPlays(plays, handle));
+      setLoading(false);
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [handle, isOwn, plays, user]);
+
   const userPlays = useMemo(
     () => plays.filter((p) => p.authorHandle === handle && p.status !== 'draft'),
     [plays, handle]
   );
 
-  const profile = isOwn ? user : firstAuthor(plays, handle ?? '');
+  usePageTitle(profile ? `${profile.displayName} (@${profile.handle})` : null);
 
   const [subscribingTo, setSubscribingTo] = useState<Play | null>(null);
 
+  if (loading) {
+    return <div className="loading">Loading profile…</div>;
+  }
   if (!profile) {
     return <div className="empty-state">User @{handle} not found.</div>;
   }
 
   const totalSubs = userPlays.reduce((a, p) => a + p.subscribers, 0);
+  const isEditorial = profile.handle === 'editorial';
 
   return (
     <>
@@ -34,12 +74,18 @@ export default function Profile() {
           <h2 className="profile-name">{profile.displayName}</h2>
           <div className="profile-handle-text">@{profile.handle}</div>
           {profile.bio ? <p className="profile-bio">{profile.bio}</p> : null}
-          <div className="profile-links">
-            {profile.website ? <a href={profile.website}>Website</a> : null}
-            {profile.x ? <a>{profile.x}</a> : null}
-            {profile.linkedin ? <a>LinkedIn</a> : null}
-          </div>
-          {!isOwn ? (
+          {!isEditorial ? (
+            <div className="profile-links">
+              {profile.website ? (
+                <a href={profile.website} target="_blank" rel="noopener noreferrer">
+                  Website
+                </a>
+              ) : null}
+              {profile.x ? <a>{profile.x}</a> : null}
+              {profile.linkedin ? <a>LinkedIn</a> : null}
+            </div>
+          ) : null}
+          {!isOwn && !isEditorial ? (
             <div className="follow-actions">
               <button className="btn btn-primary btn-flex-auto">Follow</button>
             </div>
@@ -69,7 +115,7 @@ export default function Profile() {
       </section>
 
       <h3 style={{ margin: '24px 0 14px', fontSize: 15, fontWeight: 600 }}>
-        Plays by {profile.displayName}
+        {isEditorial ? 'Editorial plays' : `Plays by ${profile.displayName}`}
       </h3>
       {userPlays.length === 0 ? (
         <div className="empty-state">No published plays yet.</div>
@@ -86,7 +132,7 @@ export default function Profile() {
   );
 }
 
-function firstAuthor(plays: Play[], handle: string): Profile | null {
+function firstAuthorFromPlays(plays: Play[], handle: string): ProfileT | null {
   const p = plays.find((x) => x.authorHandle === handle);
   if (!p) return null;
   return {

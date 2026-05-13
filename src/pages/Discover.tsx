@@ -4,6 +4,7 @@ import SubscribeModal from '../components/SubscribeModal';
 import { CATEGORIES, type Category, type Play } from '../lib/types';
 import { CATEGORY_DOT_COLORS } from '../lib/categories';
 import { useAppState } from '../state/AppState';
+import { usePageTitle } from '../lib/usePageTitle';
 
 type Sort = 'trending' | 'performance' | 'subscribers' | 'newest';
 
@@ -12,6 +13,8 @@ export default function Discover() {
   const [filter, setFilter] = useState<'all' | Category>('all');
   const [sort, setSort] = useState<Sort>('trending');
   const [subscribingTo, setSubscribingTo] = useState<Play | null>(null);
+
+  usePageTitle('Discover');
 
   const visible = useMemo(() => {
     let list = plays.filter(

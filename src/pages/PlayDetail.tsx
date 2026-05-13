@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAppState } from '../state/AppState';
 import { supabase } from '../lib/supabase';
 import { fmtCount, fmtDate, fmtPct, fmtRelative, fmtSince } from '../lib/format';
+import { usePageTitle } from '../lib/usePageTitle';
 import SubscribeModal from '../components/SubscribeModal';
 import Sparkline from '../components/Sparkline';
 import HoldingRow from '../components/HoldingRow';
@@ -35,6 +36,8 @@ export default function PlayDetail() {
   const play = plays.find((p) => p.slug === slug);
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [win, setWin] = useState<Win>('ytd');
+
+  usePageTitle(play?.name);
 
   if (!play) {
     return (
