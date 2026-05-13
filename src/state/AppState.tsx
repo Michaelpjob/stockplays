@@ -10,6 +10,7 @@ import {
 import type { Play, Profile } from '../lib/types';
 import { SEED_PLAYS } from '../data/seedPlays';
 import { isDemoMode } from '../lib/supabase';
+import { fetchPlays } from '../lib/playQueries';
 import { today } from '../lib/format';
 
 const DEMO_USER: Profile = {
@@ -135,7 +136,22 @@ function saveDemo(s: {
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const initial = isDemoMode ? loadDemo() : null;
 
+  // Plays initially come from the local seed (instant render) and are then
+  // replaced by Supabase data when not in demo mode. The seed IDs/slugs match
+  // the DB rows so swapping in fresh data is seamless.
   const [plays, setPlays] = useState<Play[]>(SEED_PLAYS);
+
+  useEffect(() => {
+    if (isDemoMode) return;
+    let cancelled = false;
+    fetchPlays().then((rows) => {
+      if (cancelled) return;
+      if (rows.length > 0) setPlays(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [isSignedIn, setIsSignedIn] = useState<boolean>(initial?.isSignedIn ?? false);
   const [subscribed, setSubscribed] = useState<Set<string>>(
     new Set(initial?.subscribed ?? [])
