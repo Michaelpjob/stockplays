@@ -1,0 +1,46 @@
+name: Run Supabase migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to run migrations against the linked database'
+        required: true
+        default: 'no'
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'yes' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Verify secret is set
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL secret is not set. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          echo "Secret looks set ($(echo "$DB_URL" | head -c 30)...)"
+
+      - name: Run 0001_init.sql
+        env:
+          PGPASSWORD_HINT: hidden
+        run: psql "${{ secrets.SUPABASE_DB_URL }}" --set ON_ERROR_STOP=on -f supabase/migrations/0001_init.sql
+
+      - name: Run 0002_rls.sql
+        run: psql "${{ secrets.SUPABASE_DB_URL }}" --set ON_ERROR_STOP=on -f supabase/migrations/0002_rls.sql
+
+      - name: Run 0003_seed.sql
+        run: psql "${{ secrets.SUPABASE_DB_URL }}" --set ON_ERROR_STOP=on -f supabase/migrations/0003_seed.sql
+
+      - name: Confirm
+        run: |
+          echo "Migrations applied. Verify table counts:"
+          psql "${{ secrets.SUPABASE_DB_URL }}" -c "select schemaname, tablename from pg_tables where schemaname = 'public' order by tablename;"
+          psql "${{ secrets.SUPABASE_DB_URL }}" -c "select count(*) as stock_count from public.stocks;"
