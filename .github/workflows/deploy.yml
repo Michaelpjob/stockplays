@@ -32,6 +32,8 @@ jobs:
           VITE_BASE: /${{ github.event.repository.name }}/
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_FINNHUB_KEY: ${{ secrets.VITE_FINNHUB_KEY }}
+          VITE_SHOW_BUILDER: ${{ secrets.VITE_SHOW_BUILDER }}
         run: npm run build
 
       # SPA fallback: copy index.html to 404.html so deep links work on Pages.
