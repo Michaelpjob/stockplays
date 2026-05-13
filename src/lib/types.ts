@@ -114,8 +114,8 @@ export interface Stock {
   marketCap: number; // billions USD
   pe?: number | null;
   divYield?: number;
-  w52H: number;
-  w52L: number;
+  w52H?: number;
+  w52L?: number;
 }
 
 export interface SubscriptionDetails {

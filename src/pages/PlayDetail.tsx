@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAppState } from '../state/AppState';
-import { fmtCount, fmtDate, fmtPct, fmtRelative, fmtSince, fmtUsd } from '../lib/format';
-import { getStock } from '../data/stockUniverse';
+import { fmtCount, fmtDate, fmtPct, fmtRelative, fmtSince } from '../lib/format';
 import SubscribeModal from '../components/SubscribeModal';
 import Sparkline from '../components/Sparkline';
+import HoldingRow from '../components/HoldingRow';
 import type { DiscussionItem } from '../lib/types';
 
 type Win = '1m' | '3m' | 'ytd' | '1y' | 'inception';
@@ -27,7 +27,6 @@ export default function PlayDetail() {
     voteComment,
     isSignedIn,
     openAuthModal,
-    openStockPanel,
     createdByMe,
   } = useAppState();
 
@@ -222,32 +221,14 @@ export default function PlayDetail() {
             </tr>
           </thead>
           <tbody>
-            {play.holdings.map((h) => {
-              const s = getStock(h.ticker);
-              return (
-                <tr key={h.ticker} onClick={() => openStockPanel(h.ticker)}>
-                  <td>
-                    <div className="ticker-pill">
-                      <span className="ticker-pill-sym">{h.ticker}</span>
-                      <span className="ticker-pill-name">{s?.name ?? ''}</span>
-                    </div>
-                  </td>
-                  <td className="num">
-                    {h.weight}%
-                    <div className="weight-bar">
-                      <div className="weight-bar-fill" style={{ width: `${Math.min(100, h.weight * 2.5)}%` }} />
-                    </div>
-                  </td>
-                  <td className="num">{s ? fmtUsd(s.price) : '—'}</td>
-                  <td className={`num ${(s?.dayChg ?? 0) >= 0 ? 'pos' : 'neg'}`}>
-                    {s ? fmtPct(s.dayChg ?? 0) : '—'}
-                  </td>
-                  <td className={`num ${(s?.ytd ?? 0) >= 0 ? 'pos' : 'neg'}`}>
-                    {s ? fmtPct(s.ytd) : '—'}
-                  </td>
-                </tr>
-              );
-            })}
+            {play.holdings.map((h) => (
+              <HoldingRow
+                key={h.ticker}
+                ticker={h.ticker}
+                weight={h.weight}
+                maxWeight={Math.max(...play.holdings.map((x) => x.weight))}
+              />
+            ))}
           </tbody>
         </table>
       </div>

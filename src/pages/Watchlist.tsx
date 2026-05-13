@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useAppState } from '../state/AppState';
-import { getStock } from '../data/stockUniverse';
+import { useStockLookup } from '../lib/useStockLookup';
 import { fmtPct, fmtUsd } from '../lib/format';
 import { Link } from 'react-router-dom';
 
@@ -81,32 +81,50 @@ export default function Watchlist() {
               </tr>
             </thead>
             <tbody>
-              {tickers.map((row) => {
-                const s = getStock(row.ticker);
-                return (
-                  <tr key={row.ticker} onClick={() => openStockPanel(row.ticker)}>
-                    <td>
-                      <span className="ticker-pill-sym">{row.ticker}</span>{' '}
-                      <span className="ticker-pill-name">{s?.name ?? ''}</span>
-                    </td>
-                    <td className="num">{row.weight.toFixed(0)}%</td>
-                    <td className="num">{s ? fmtUsd(s.price) : '—'}</td>
-                    <td className={`num ${(s?.dayChg ?? 0) >= 0 ? 'pos' : 'neg'}`}>
-                      {s ? fmtPct(s.dayChg ?? 0) : '—'}
-                    </td>
-                    <td className={`num ${(s?.ytd ?? 0) >= 0 ? 'pos' : 'neg'}`}>
-                      {s ? fmtPct(s.ytd) : '—'}
-                    </td>
-                    <td style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      {row.plays.join(' · ')}
-                    </td>
-                  </tr>
-                );
-              })}
+              {tickers.map((row) => (
+                <WatchlistRow
+                  key={row.ticker}
+                  ticker={row.ticker}
+                  weight={row.weight}
+                  plays={row.plays}
+                  onClick={() => openStockPanel(row.ticker)}
+                />
+              ))}
             </tbody>
           </table>
         </div>
       )}
     </>
+  );
+}
+
+function WatchlistRow({
+  ticker,
+  weight,
+  plays,
+  onClick,
+}: {
+  ticker: string;
+  weight: number;
+  plays: string[];
+  onClick: () => void;
+}) {
+  const { stock, loading } = useStockLookup(ticker);
+  return (
+    <tr onClick={onClick}>
+      <td>
+        <span className="ticker-pill-sym">{ticker}</span>{' '}
+        <span className="ticker-pill-name">{loading ? '…' : stock?.name ?? ''}</span>
+      </td>
+      <td className="num">{weight.toFixed(0)}%</td>
+      <td className="num">{stock ? fmtUsd(stock.price) : loading ? '…' : '—'}</td>
+      <td className={`num ${(stock?.dayChg ?? 0) >= 0 ? 'pos' : 'neg'}`}>
+        {stock ? fmtPct(stock.dayChg ?? 0) : loading ? '…' : '—'}
+      </td>
+      <td className={`num ${(stock?.ytd ?? 0) >= 0 ? 'pos' : 'neg'}`}>
+        {stock && stock.ytd !== 0 ? fmtPct(stock.ytd) : '—'}
+      </td>
+      <td style={{ fontSize: 12, color: 'var(--muted)' }}>{plays.join(' · ')}</td>
+    </tr>
   );
 }

@@ -5,6 +5,8 @@ import { CATEGORIES, type Category, type Holding, type Play, type Rebalance } fr
 import { CATEGORY_BENCHMARKS } from '../lib/categories';
 import { STOCK_UNIVERSE } from '../data/stockUniverse';
 import { fmtUsd, normalizeWeights, today } from '../lib/format';
+import { useDebouncedStockLookup } from '../lib/useStockLookup';
+import { hasLiveLookup } from '../lib/stockLookup';
 
 const REBALANCES: Rebalance[] = ['Quarterly', 'Monthly', 'Threshold-triggered', 'Manual'];
 
@@ -46,8 +48,7 @@ export default function Builder() {
   }, [search, holdings]);
 
   // If the user typed something that looks like a ticker and nothing matches
-  // in the seeded universe, offer to add it as a "custom" holding. Price /
-  // fundamentals will show as "—" until the stocks row is populated.
+  // in the seeded universe, try to resolve it via the live data provider.
   const customTicker = useMemo(() => {
     const q = search.trim().toUpperCase();
     if (!/^[A-Z]{1,5}(\.[A-Z])?$/.test(q)) return null;
@@ -55,6 +56,10 @@ export default function Builder() {
     if (STOCK_UNIVERSE[q]) return null;
     return q;
   }, [search, holdings]);
+
+  // Debounced live lookup against Finnhub for the typed ticker. Skips the
+  // network call when the seeded universe already has it.
+  const liveLookup = useDebouncedStockLookup(customTicker);
 
   function addHolding(ticker: string) {
     const remaining = Math.max(0, 100 - total);
@@ -226,22 +231,47 @@ export default function Builder() {
                     </button>
                   ))}
                   {customTicker ? (
-                    <button
-                      className="search-result"
-                      onClick={() => addHolding(customTicker)}
-                    >
-                      <div>
-                        <span className="ticker-pill-sym">{customTicker}</span>{' '}
-                        <span className="ticker-pill-name">+ Add as custom ticker</span>
+                    liveLookup.loading ? (
+                      <div className="search-result" style={{ cursor: 'default' }}>
+                        <div>
+                          <span className="ticker-pill-sym">{customTicker}</span>{' '}
+                          <span className="ticker-pill-name">Looking up…</span>
+                        </div>
                       </div>
-                      <span className="tip">No price data</span>
-                    </button>
+                    ) : liveLookup.stock ? (
+                      <button
+                        className="search-result"
+                        onClick={() => addHolding(liveLookup.stock!.ticker)}
+                      >
+                        <div>
+                          <span className="ticker-pill-sym">{liveLookup.stock.ticker}</span>{' '}
+                          <span className="ticker-pill-name">{liveLookup.stock.name}</span>
+                        </div>
+                        <span className="tip">{fmtUsd(liveLookup.stock.price)}</span>
+                      </button>
+                    ) : (
+                      <button
+                        className="search-result"
+                        onClick={() => addHolding(customTicker)}
+                      >
+                        <div>
+                          <span className="ticker-pill-sym">{customTicker}</span>{' '}
+                          <span className="ticker-pill-name">
+                            + Add as custom ticker
+                          </span>
+                        </div>
+                        <span className="tip">
+                          {hasLiveLookup ? 'Not found · added bare' : 'No price data'}
+                        </span>
+                      </button>
+                    )
                   ) : null}
                 </div>
               ) : null}
               <div className="tip">
-                Type a ticker (e.g. NFLX, DIS) — any US-listed symbol works. Price + fundamentals
-                show "—" until that ticker is loaded into the stocks table.
+                {hasLiveLookup
+                  ? 'Type any US-listed ticker (e.g. NFLX, DIS, BRK.B). Live price is fetched from Finnhub.'
+                  : 'Type a ticker (e.g. NFLX, DIS). Live data is off — set VITE_FINNHUB_KEY to enable.'}
               </div>
             </div>
 
