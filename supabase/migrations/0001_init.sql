@@ -278,9 +278,14 @@ begin
 end;
 $$ language plpgsql;
 
-create trigger trg_sub_count
-after insert or delete on public.subscriptions
-for each row when (coalesce(new.status, old.status) = 'active')
+create trigger trg_sub_count_insert
+after insert on public.subscriptions
+for each row when (new.status = 'active')
+execute function public.bump_play_counter('subscribers');
+
+create trigger trg_sub_count_delete
+after delete on public.subscriptions
+for each row when (old.status = 'active')
 execute function public.bump_play_counter('subscribers');
 
 create trigger trg_kudos_count

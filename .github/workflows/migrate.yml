@@ -7,6 +7,10 @@ on:
         description: 'Type "yes" to run migrations against the linked database'
         required: true
         default: 'no'
+      reset:
+        description: 'Type "yes" to drop and recreate the public schema first (destroys all data)'
+        required: false
+        default: 'no'
 
 jobs:
   migrate:
@@ -27,6 +31,20 @@ jobs:
             exit 1
           fi
           echo "Secret looks set ($(echo "$DB_URL" | head -c 30)...)"
+
+      - name: Reset schema (if reset=yes)
+        if: ${{ github.event.inputs.reset == 'yes' }}
+        run: |
+          psql "${{ secrets.SUPABASE_DB_URL }}" --set ON_ERROR_STOP=on <<'SQL'
+            drop trigger if exists on_auth_user_created on auth.users;
+            drop schema if exists public cascade;
+            create schema public;
+            grant usage on schema public to postgres, anon, authenticated, service_role;
+            grant create on schema public to postgres, service_role;
+            grant all on schema public to postgres, service_role;
+            grant select, insert, update, delete on all tables in schema public to anon, authenticated;
+            alter default privileges in schema public grant select, insert, update, delete on tables to anon, authenticated;
+          SQL
 
       - name: Run 0001_init.sql
         env:
