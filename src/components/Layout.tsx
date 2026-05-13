@@ -108,6 +108,21 @@ export default function Layout() {
         <div key={location.pathname}>
           <Outlet />
         </div>
+
+        <footer className="site-footer">
+          <div className="footer-disclaimer">
+            Plays publishes thematic stock bundles for informational and educational purposes
+            only. Nothing on this site is investment advice. Past performance does not predict
+            future results. See the{' '}
+            <NavLink to="/disclaimer">Disclaimer</NavLink> for details.
+          </div>
+          <div>© {new Date().getFullYear()} Plays</div>
+          <div className="footer-links">
+            <NavLink to="/terms">Terms</NavLink>
+            <NavLink to="/privacy">Privacy</NavLink>
+            <NavLink to="/disclaimer">Disclaimer</NavLink>
+          </div>
+        </footer>
       </main>
 
       <AuthModal />

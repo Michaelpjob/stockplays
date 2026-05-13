@@ -44,7 +44,13 @@ export default function PlayCard({ play, onSubscribeClick }: Props) {
         <div>
           <div className="card-title">{play.name}</div>
           <div className="card-author">
-            by {play.author} · {play.holdings.length} holdings
+            {play.authorHandle === 'editorial' ? (
+              <>Curated by {play.author}</>
+            ) : (
+              <>by {play.author}</>
+            )}
+            {' · '}
+            {play.holdings.length} holdings
           </div>
         </div>
         <span className={`badge badge-${play.category}`}>{play.category}</span>

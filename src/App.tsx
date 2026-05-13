@@ -8,6 +8,9 @@ import Watchlist from './pages/Watchlist';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Setup from './pages/Setup';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import Disclaimer from './pages/Disclaimer';
 import NotFound from './pages/NotFound';
 
 const SHOW_BUILDER = import.meta.env.VITE_SHOW_BUILDER === 'true';
@@ -31,6 +34,9 @@ export default function App() {
         <Route path="me/watchlist" element={<Watchlist />} />
         <Route path="me/settings" element={<Settings />} />
         <Route path="u/:handle" element={<Profile />} />
+        <Route path="terms" element={<Terms />} />
+        <Route path="privacy" element={<Privacy />} />
+        <Route path="disclaimer" element={<Disclaimer />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

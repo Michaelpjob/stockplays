@@ -98,12 +98,18 @@ export default function PlayDetail() {
         </div>
         <h1>{play.name}</h1>
         <div className="detail-hero-meta">
-          <span>
-            by <b>{play.author}</b>{' '}
-            <Link to={`/u/${play.authorHandle}`} style={{ color: 'var(--muted)' }}>
-              @{play.authorHandle}
-            </Link>
-          </span>
+          {play.authorHandle === 'editorial' ? (
+            <span>
+              Curated by <b>{play.author}</b>
+            </span>
+          ) : (
+            <span>
+              by <b>{play.author}</b>{' '}
+              <Link to={`/u/${play.authorHandle}`} style={{ color: 'var(--muted)' }}>
+                @{play.authorHandle}
+              </Link>
+            </span>
+          )}
           <span>•</span>
           <span>{fmtCount(play.subscribers)} subscribers</span>
           <span>•</span>
@@ -206,6 +212,10 @@ export default function PlayDetail() {
           </div>
           <div className="perf-vs">subscribers · {fmtCount(play.followers)} following</div>
         </div>
+      </div>
+      <div className="illustrative-note" style={{ marginBottom: 16, padding: '0 4px' }}>
+        Performance is hypothetical, computed from adjusted closing prices and published weights.
+        Past performance does not predict future results.
       </div>
 
       <div className="panel" style={{ marginBottom: 16 }}>

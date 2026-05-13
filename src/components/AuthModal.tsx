@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAppState } from '../state/AppState';
 import { isDemoMode, supabase } from '../lib/supabase';
 
@@ -7,6 +8,7 @@ export default function AuthModal() {
   const [tab, setTab] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [tosAccepted, setTosAccepted] = useState(false);
   const [working, setWorking] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -15,6 +17,10 @@ export default function AuthModal() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
+    if (tab === 'signup' && !tosAccepted) {
+      setMsg('You must agree to the Terms and acknowledge the Disclaimer to create an account.');
+      return;
+    }
     if (isDemoMode || !supabase) {
       signIn(email);
       return;
@@ -31,12 +37,12 @@ export default function AuthModal() {
           password,
           options: {
             emailRedirectTo: window.location.origin + window.location.pathname,
+            data: { tos_accepted_at: new Date().toISOString() },
           },
         });
         if (error) throw error;
         if (data.session) {
           // Email confirmations disabled — we're already signed in.
-          // onAuthStateChange will close the modal.
         } else {
           setMsg(
             'Check your email to confirm your account. Once confirmed, sign back in to finish setup.'
@@ -113,12 +119,30 @@ export default function AuthModal() {
               placeholder={isDemoMode ? 'anything works in demo mode' : '••••••••'}
             />
           </div>
+          {tab === 'signup' ? (
+            <label className={`tos-checkbox${msg && !tosAccepted ? ' error' : ''}`}>
+              <input
+                type="checkbox"
+                checked={tosAccepted}
+                onChange={(e) => setTosAccepted(e.target.checked)}
+              />
+              <span>
+                I agree to the <Link to="/terms">Terms of Service</Link> and acknowledge the{' '}
+                <Link to="/disclaimer">Investment Disclaimer</Link>. I understand that content
+                on Plays is not investment advice.
+              </span>
+            </label>
+          ) : null}
           {msg ? <div className="disclaimer-note">{msg}</div> : null}
           <div className="modal-actions">
             <button type="button" className="btn" onClick={closeAuthModal}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={working}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={working || (tab === 'signup' && !tosAccepted)}
+            >
               {tab === 'signin' ? 'Sign in' : 'Create account'}
             </button>
           </div>
