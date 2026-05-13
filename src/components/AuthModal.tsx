@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppState } from '../state/AppState';
 import { isDemoMode, supabase } from '../lib/supabase';
+import TurnstileWidget, { isCaptchaEnabled } from './TurnstileWidget';
 
 export default function AuthModal() {
   const { authModalOpen, closeAuthModal, signIn } = useAppState();
@@ -9,8 +10,11 @@ export default function AuthModal() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [tosAccepted, setTosAccepted] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  const onCaptchaToken = useCallback((t: string | null) => setCaptchaToken(t), []);
 
   if (!authModalOpen) return null;
 
@@ -21,6 +25,10 @@ export default function AuthModal() {
       setMsg('You must agree to the Terms and acknowledge the Disclaimer to create an account.');
       return;
     }
+    if (isCaptchaEnabled && !captchaToken) {
+      setMsg('Complete the captcha to continue.');
+      return;
+    }
     if (isDemoMode || !supabase) {
       signIn(email);
       return;
@@ -28,9 +36,12 @@ export default function AuthModal() {
     setWorking(true);
     try {
       if (tab === 'signin') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+          options: captchaToken ? { captchaToken } : undefined,
+        });
         if (error) throw error;
-        // onAuthStateChange in AppState will close the modal once profile loads.
       } else {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -38,6 +49,7 @@ export default function AuthModal() {
           options: {
             emailRedirectTo: window.location.origin + window.location.pathname,
             data: { tos_accepted_at: new Date().toISOString() },
+            ...(captchaToken ? { captchaToken } : {}),
           },
         });
         if (error) throw error;
@@ -133,6 +145,7 @@ export default function AuthModal() {
               </span>
             </label>
           ) : null}
+          <TurnstileWidget onToken={onCaptchaToken} />
           {msg ? <div className="disclaimer-note">{msg}</div> : null}
           <div className="modal-actions">
             <button type="button" className="btn" onClick={closeAuthModal}>
