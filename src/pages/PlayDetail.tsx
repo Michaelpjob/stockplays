@@ -5,6 +5,7 @@ import { fmtCount, fmtDate, fmtPct, fmtRelative, fmtSince } from '../lib/format'
 import SubscribeModal from '../components/SubscribeModal';
 import Sparkline from '../components/Sparkline';
 import HoldingRow from '../components/HoldingRow';
+import ReportModal from '../components/ReportModal';
 import type { DiscussionItem } from '../lib/types';
 
 type Win = '1m' | '3m' | 'ytd' | '1y' | 'inception';
@@ -294,6 +295,8 @@ interface DiscussionProps {
 }
 
 function Discussion({ items, commentVotes, onVote }: DiscussionProps) {
+  const [reporting, setReporting] = useState<DiscussionItem | null>(null);
+
   if (items.length === 0) {
     return (
       <div className="panel">
@@ -306,6 +309,19 @@ function Discussion({ items, commentVotes, onVote }: DiscussionProps) {
   }
   return (
     <div className="panel">
+      <ReportModal
+        open={!!reporting}
+        targetType="comment"
+        targetId={reporting?.id ?? ''}
+        targetLabel={
+          reporting
+            ? `${reporting.type === 'dissertation' ? 'Dissertation' : 'Comment'} by @${
+                reporting.author
+              }`
+            : ''
+        }
+        onClose={() => setReporting(null)}
+      />
       <div className="discussion-header">
         <h3>Discussion · {items.length}</h3>
       </div>
@@ -345,7 +361,7 @@ function Discussion({ items, commentVotes, onVote }: DiscussionProps) {
                 <div className="disc-actions">
                   <a>Reply</a>
                   <a>Share</a>
-                  <a>Report</a>
+                  <a onClick={() => setReporting(it)}>Report</a>
                 </div>
               </div>
             </div>

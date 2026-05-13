@@ -11,6 +11,7 @@ import Setup from './pages/Setup';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import Disclaimer from './pages/Disclaimer';
+import AdminReports from './pages/AdminReports';
 import NotFound from './pages/NotFound';
 
 const SHOW_BUILDER = import.meta.env.VITE_SHOW_BUILDER === 'true';
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="terms" element={<Terms />} />
         <Route path="privacy" element={<Privacy />} />
         <Route path="disclaimer" element={<Disclaimer />} />
+        <Route path="admin/reports" element={<AdminReports />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

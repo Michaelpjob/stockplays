@@ -18,6 +18,7 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const isAdmin = user?.role === 'admin';
 
   return (
     <div className="app">
@@ -38,6 +39,13 @@ export default function Layout() {
 
         <div className="nav-section">Account</div>
         <SideLink to="/me/settings" icon="⚙" label="Settings" />
+
+        {isAdmin ? (
+          <>
+            <div className="nav-section">Admin</div>
+            <SideLink to="/admin/reports" icon="!" label="Reports" />
+          </>
+        ) : null}
 
         {SHOW_BUILDER ? (
           <button

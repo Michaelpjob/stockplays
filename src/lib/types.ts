@@ -43,6 +43,7 @@ export interface Profile {
   x?: string | null;
   linkedin?: string | null;
   karma?: number;
+  role?: 'member' | 'curator' | 'reviewer' | 'admin';
 }
 
 export interface Holding {

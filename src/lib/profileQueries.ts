@@ -11,6 +11,7 @@ interface DbProfile {
   x_handle: string | null;
   linkedin: string | null;
   karma: number;
+  role: 'member' | 'curator' | 'reviewer' | 'admin';
   created_at: string;
 }
 
@@ -26,6 +27,7 @@ function mapProfile(row: DbProfile): Profile {
     x: row.x_handle,
     linkedin: row.linkedin,
     karma: row.karma,
+    role: row.role,
   };
 }
 
@@ -44,7 +46,7 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id, handle, display_name, bio, avatar, website, x_handle, linkedin, karma, created_at'
+      'id, handle, display_name, bio, avatar, website, x_handle, linkedin, karma, role, created_at'
     )
     .eq('id', userId)
     .maybeSingle();
@@ -60,7 +62,7 @@ export async function fetchProfileByHandle(handle: string): Promise<Profile | nu
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id, handle, display_name, bio, avatar, website, x_handle, linkedin, karma, created_at'
+      'id, handle, display_name, bio, avatar, website, x_handle, linkedin, karma, role, created_at'
     )
     .eq('handle', handle)
     .maybeSingle();
@@ -111,7 +113,7 @@ export async function updateProfile(
     .update(patch)
     .eq('id', userId)
     .select(
-      'id, handle, display_name, bio, avatar, website, x_handle, linkedin, karma, created_at'
+      'id, handle, display_name, bio, avatar, website, x_handle, linkedin, karma, role, created_at'
     )
     .single();
   if (error) {
