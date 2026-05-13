@@ -4,7 +4,7 @@ import PlayCard from '../components/PlayCard';
 import SubscribeModal from '../components/SubscribeModal';
 import { fmtDate } from '../lib/format';
 import { useAppState } from '../state/AppState';
-import type { Play } from '../lib/types';
+import type { Play, Profile } from '../lib/types';
 
 export default function Profile() {
   const { handle } = useParams();
@@ -86,7 +86,7 @@ export default function Profile() {
   );
 }
 
-function firstAuthor(plays: Play[], handle: string) {
+function firstAuthor(plays: Play[], handle: string): Profile | null {
   const p = plays.find((x) => x.authorHandle === handle);
   if (!p) return null;
   return {
@@ -97,6 +97,9 @@ function firstAuthor(plays: Play[], handle: string) {
     bio: null,
     joinedAt: p.created,
     karma: 240,
+    website: null,
+    x: null,
+    linkedin: null,
   };
 }
 
