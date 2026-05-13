@@ -46,19 +46,19 @@ jobs:
             alter default privileges in schema public grant select, insert, update, delete on tables to anon, authenticated;
           SQL
 
-      - name: Run 0001_init.sql
-        env:
-          PGPASSWORD_HINT: hidden
-        run: psql "${{ secrets.SUPABASE_DB_URL }}" --set ON_ERROR_STOP=on -f supabase/migrations/0001_init.sql
-
-      - name: Run 0002_rls.sql
-        run: psql "${{ secrets.SUPABASE_DB_URL }}" --set ON_ERROR_STOP=on -f supabase/migrations/0002_rls.sql
-
-      - name: Run 0003_seed.sql
-        run: psql "${{ secrets.SUPABASE_DB_URL }}" --set ON_ERROR_STOP=on -f supabase/migrations/0003_seed.sql
+      - name: Run all migrations in order
+        run: |
+          for f in supabase/migrations/*.sql; do
+            echo "::group::$(basename "$f")"
+            psql "${{ secrets.SUPABASE_DB_URL }}" --set ON_ERROR_STOP=on -f "$f"
+            echo "::endgroup::"
+          done
 
       - name: Confirm
         run: |
-          echo "Migrations applied. Verify table counts:"
+          echo "Migrations applied. Verify counts:"
           psql "${{ secrets.SUPABASE_DB_URL }}" -c "select schemaname, tablename from pg_tables where schemaname = 'public' order by tablename;"
           psql "${{ secrets.SUPABASE_DB_URL }}" -c "select count(*) as stock_count from public.stocks;"
+          psql "${{ secrets.SUPABASE_DB_URL }}" -c "select count(*) as play_count, count(distinct author_id) as curator_count from public.plays;"
+          psql "${{ secrets.SUPABASE_DB_URL }}" -c "select count(*) as holdings_count from public.play_holdings;"
+          psql "${{ secrets.SUPABASE_DB_URL }}" -c "select count(*) as discussion_count from public.discussion_items;"
