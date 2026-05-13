@@ -4,13 +4,24 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import type { Play, Profile } from '../lib/types';
 import { SEED_PLAYS } from '../data/seedPlays';
-import { isDemoMode } from '../lib/supabase';
+import { isDemoMode, supabase } from '../lib/supabase';
 import { fetchPlays } from '../lib/playQueries';
+import { fetchProfile, isProfileIncomplete } from '../lib/profileQueries';
+import {
+  dbSubscribe,
+  dbToggleFollow,
+  dbToggleKudos,
+  dbToggleSave,
+  dbUnsubscribe,
+  dbVoteComment,
+  fetchUserEngagement,
+} from '../lib/engagementQueries';
 import { today } from '../lib/format';
 
 const DEMO_USER: Profile = {
@@ -45,6 +56,9 @@ interface AppStateValue {
   plays: Play[];
   user: Profile | null;
   isSignedIn: boolean;
+  authPending: boolean;
+  profileNeedsSetup: boolean;
+  refreshProfile: () => Promise<void>;
   signIn: (email?: string) => void;
   signOut: () => void;
 
@@ -136,23 +150,16 @@ function saveDemo(s: {
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const initial = isDemoMode ? loadDemo() : null;
 
-  // Plays initially come from the local seed (instant render) and are then
-  // replaced by Supabase data when not in demo mode. The seed IDs/slugs match
-  // the DB rows so swapping in fresh data is seamless.
   const [plays, setPlays] = useState<Play[]>(SEED_PLAYS);
 
-  useEffect(() => {
-    if (isDemoMode) return;
-    let cancelled = false;
-    fetchPlays().then((rows) => {
-      if (cancelled) return;
-      if (rows.length > 0) setPlays(rows);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  const [isSignedIn, setIsSignedIn] = useState<boolean>(initial?.isSignedIn ?? false);
+  const [user, setUser] = useState<Profile | null>(
+    isDemoMode && initial?.isSignedIn ? DEMO_USER : null
+  );
+  const [isSignedIn, setIsSignedIn] = useState<boolean>(
+    isDemoMode ? !!initial?.isSignedIn : false
+  );
+  const [authPending, setAuthPending] = useState<boolean>(!isDemoMode);
+
   const [subscribed, setSubscribed] = useState<Set<string>>(
     new Set(initial?.subscribed ?? [])
   );
@@ -173,8 +180,94 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [stockPanelTicker, setStockPanelTicker] = useState<string | null>(null);
 
-  const user = isSignedIn ? DEMO_USER : null;
+  // Track current user id in a ref so async writes use the latest value.
+  const userIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    userIdRef.current = user?.id ?? null;
+  }, [user]);
 
+  // ── Load plays from Supabase (replaces seed if available) ────────────
+  useEffect(() => {
+    if (isDemoMode) return;
+    let cancelled = false;
+    fetchPlays().then((rows) => {
+      if (cancelled) return;
+      if (rows.length > 0) setPlays(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ── Auth: Supabase session + listener ────────────────────────────────
+  useEffect(() => {
+    if (isDemoMode || !supabase) {
+      setAuthPending(false);
+      return;
+    }
+    let cancelled = false;
+
+    async function load(userId: string) {
+      const [profile, eng] = await Promise.all([
+        fetchProfile(userId),
+        fetchUserEngagement(userId),
+      ]);
+      if (cancelled) return;
+      if (profile) setUser(profile);
+      else setUser({ ...DEMO_USER, id: userId, handle: `user_${userId.slice(0, 8)}` });
+      setIsSignedIn(true);
+      const subDetails: Record<string, SubInfo> = {};
+      eng.subscribed.forEach((v, k) => {
+        subDetails[k] = v;
+      });
+      setSubscribed(new Set(eng.subscribed.keys()));
+      setSubscriptionDetails(subDetails);
+      setKudos(eng.kudos);
+      setFollows(eng.follows);
+      setSaves(eng.saves);
+      const votes: Record<string, 1 | -1> = {};
+      eng.commentVotes.forEach((v, k) => {
+        votes[k] = v;
+      });
+      setCommentVotes(votes);
+      setAuthPending(false);
+    }
+
+    function clear() {
+      setUser(null);
+      setIsSignedIn(false);
+      setSubscribed(new Set());
+      setSubscriptionDetails({});
+      setKudos(new Set());
+      setFollows(new Set());
+      setSaves(new Set());
+      setCommentVotes({});
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled) return;
+      if (session?.user) load(session.user.id);
+      else setAuthPending(false);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        load(session.user.id);
+        setAuthModalOpen(false);
+      } else if (event === 'SIGNED_OUT') {
+        clear();
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // Don't re-fetch on refresh; we already have the data.
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  // ── Persist demo state to localStorage ───────────────────────────────
   useEffect(() => {
     if (!isDemoMode) return;
     saveDemo({
@@ -200,22 +293,44 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     prefs,
   ]);
 
-  const signIn = useCallback(() => {
-    setIsSignedIn(true);
-    setAuthModalOpen(false);
+  const refreshProfile = useCallback(async () => {
+    if (isDemoMode || !supabase || !userIdRef.current) return;
+    const profile = await fetchProfile(userIdRef.current);
+    if (profile) setUser(profile);
   }, []);
-  const signOut = useCallback(() => setIsSignedIn(false), []);
 
-  const subscribe = useCallback(
-    (playId: string, inceptionDate: string) => {
-      setSubscribed((prev) => new Set(prev).add(playId));
-      setSubscriptionDetails((prev) => ({ ...prev, [playId]: { inceptionDate } }));
-      setPlays((prev) =>
-        prev.map((p) => (p.id === playId ? { ...p, subscribers: p.subscribers + 1 } : p))
-      );
-    },
-    []
-  );
+  const signIn = useCallback(() => {
+    if (isDemoMode) {
+      setUser(DEMO_USER);
+      setIsSignedIn(true);
+      setAuthModalOpen(false);
+    }
+    // In Supabase mode the AuthModal calls supabase.auth.signInWithPassword
+    // and onAuthStateChange takes care of state updates.
+  }, []);
+
+  const signOut = useCallback(() => {
+    if (isDemoMode || !supabase) {
+      setUser(null);
+      setIsSignedIn(false);
+      return;
+    }
+    supabase.auth.signOut();
+  }, []);
+
+  // ── Engagement actions: optimistic UI + best-effort DB write ─────────
+  const subscribe = useCallback((playId: string, inceptionDate: string) => {
+    setSubscribed((prev) => new Set(prev).add(playId));
+    setSubscriptionDetails((prev) => ({ ...prev, [playId]: { inceptionDate } }));
+    setPlays((prev) =>
+      prev.map((p) => (p.id === playId ? { ...p, subscribers: p.subscribers + 1 } : p))
+    );
+    if (!isDemoMode && userIdRef.current) {
+      dbSubscribe(userIdRef.current, playId, inceptionDate).then(({ error }) => {
+        if (error) console.error('subscribe:', error);
+      });
+    }
+  }, []);
 
   const unsubscribe = useCallback((playId: string) => {
     setSubscribed((prev) => {
@@ -233,53 +348,80 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         p.id === playId ? { ...p, subscribers: Math.max(0, p.subscribers - 1) } : p
       )
     );
+    if (!isDemoMode && userIdRef.current) {
+      dbUnsubscribe(userIdRef.current, playId).then(({ error }) => {
+        if (error) console.error('unsubscribe:', error);
+      });
+    }
   }, []);
 
-  const makeToggle = (
-    set: Set<string>,
-    setter: (v: Set<string>) => void,
-    counterKey?: 'kudos' | 'followers'
-  ) => (playId: string) => {
-    const isActive = set.has(playId);
-    const next = new Set(set);
-    if (isActive) next.delete(playId);
-    else next.add(playId);
-    setter(next);
-    if (counterKey) {
-      setPlays((prev) =>
-        prev.map((p) => {
-          if (p.id !== playId) return p;
-          const delta = isActive ? -1 : 1;
-          return { ...p, [counterKey]: Math.max(0, p[counterKey] + delta) };
-        })
-      );
-    }
-  };
+  function makeToggle(
+    has: (s: Set<string>, id: string) => boolean,
+    counterKey: 'kudos' | 'followers' | null,
+    dbFn: (u: string, p: string, on: boolean) => Promise<{ error: string | null }>
+  ) {
+    return (
+      set: Set<string>,
+      setter: (v: Set<string>) => void,
+      playId: string
+    ) => {
+      const wasActive = has(set, playId);
+      const next = new Set(set);
+      if (wasActive) next.delete(playId);
+      else next.add(playId);
+      setter(next);
+      if (counterKey) {
+        setPlays((prev) =>
+          prev.map((p) => {
+            if (p.id !== playId) return p;
+            const delta = wasActive ? -1 : 1;
+            return { ...p, [counterKey]: Math.max(0, p[counterKey] + delta) };
+          })
+        );
+      }
+      if (!isDemoMode && userIdRef.current) {
+        dbFn(userIdRef.current, playId, !wasActive).then(({ error }) => {
+          if (error) console.error(error);
+        });
+      }
+    };
+  }
+
+  const kToggle = makeToggle((s, id) => s.has(id), 'kudos', dbToggleKudos);
+  const fToggle = makeToggle((s, id) => s.has(id), 'followers', dbToggleFollow);
+  const sToggle = makeToggle((s, id) => s.has(id), null, dbToggleSave);
 
   const toggleKudos = useCallback(
-    (playId: string) => makeToggle(kudos, setKudos, 'kudos')(playId),
-    [kudos]
+    (playId: string) => kToggle(kudos, setKudos, playId),
+    [kudos] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const toggleFollow = useCallback(
-    (playId: string) => makeToggle(follows, setFollows, 'followers')(playId),
-    [follows]
+    (playId: string) => fToggle(follows, setFollows, playId),
+    [follows] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const toggleSave = useCallback(
-    (playId: string) => makeToggle(saves, setSaves)(playId),
-    [saves]
+    (playId: string) => sToggle(saves, setSaves, playId),
+    [saves] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const voteComment = useCallback((commentId: string, vote: 1 | -1) => {
+    let newVote: 1 | -1 | null = vote;
     setCommentVotes((prev) => {
       const current = prev[commentId];
       const next = { ...prev };
       if (current === vote) {
         delete next[commentId];
+        newVote = null;
       } else {
         next[commentId] = vote;
       }
       return next;
     });
+    if (!isDemoMode && userIdRef.current) {
+      dbVoteComment(userIdRef.current, commentId, newVote).then(({ error }) => {
+        if (error) console.error('voteComment:', error);
+      });
+    }
   }, []);
 
   const upsertPlay = useCallback((play: Play) => {
@@ -299,11 +441,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setPrefs((prev) => ({ ...prev, [k]: v }));
   }, []);
 
+  const profileNeedsSetup = useMemo(
+    () => !isDemoMode && isSignedIn && isProfileIncomplete(user),
+    [isSignedIn, user]
+  );
+
   const value = useMemo<AppStateValue>(
     () => ({
       plays,
       user,
       isSignedIn,
+      authPending,
+      profileNeedsSetup,
+      refreshProfile,
       signIn,
       signOut,
       subscribed,
@@ -333,6 +483,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       plays,
       user,
       isSignedIn,
+      authPending,
+      profileNeedsSetup,
+      refreshProfile,
       signIn,
       signOut,
       subscribed,

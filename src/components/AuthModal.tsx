@@ -24,12 +24,25 @@ export default function AuthModal() {
       if (tab === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        // onAuthStateChange in AppState will close the modal once profile loads.
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: window.location.origin + window.location.pathname,
+          },
+        });
         if (error) throw error;
-        setMsg('Check your email to confirm your account.');
+        if (data.session) {
+          // Email confirmations disabled — we're already signed in.
+          // onAuthStateChange will close the modal.
+        } else {
+          setMsg(
+            'Check your email to confirm your account. Once confirmed, sign back in to finish setup.'
+          );
+        }
       }
-      closeAuthModal();
     } catch (err: unknown) {
       setMsg(err instanceof Error ? err.message : 'Auth failed');
     } finally {

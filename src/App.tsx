@@ -7,6 +7,7 @@ import MyPlays from './pages/MyPlays';
 import Watchlist from './pages/Watchlist';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import Setup from './pages/Setup';
 import NotFound from './pages/NotFound';
 
 const SHOW_BUILDER = import.meta.env.VITE_SHOW_BUILDER === 'true';
@@ -25,6 +26,7 @@ export default function App() {
           path="create/:editId"
           element={SHOW_BUILDER ? <Builder /> : <Navigate to="/" replace />}
         />
+        <Route path="setup" element={<Setup />} />
         <Route path="me" element={<MyPlays />} />
         <Route path="me/watchlist" element={<Watchlist />} />
         <Route path="me/settings" element={<Settings />} />

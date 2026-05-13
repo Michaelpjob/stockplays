@@ -7,7 +7,14 @@ import StockPanel from './StockPanel';
 const SHOW_BUILDER = import.meta.env.VITE_SHOW_BUILDER === 'true';
 
 export default function Layout() {
-  const { isSignedIn, user, signOut, openAuthModal, stockPanelTicker } = useAppState();
+  const {
+    isSignedIn,
+    user,
+    signOut,
+    openAuthModal,
+    stockPanelTicker,
+    profileNeedsSetup,
+  } = useAppState();
   const location = useLocation();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -84,6 +91,19 @@ export default function Layout() {
             </button>
           )}
         </div>
+
+        {profileNeedsSetup && location.pathname !== '/setup' ? (
+          <div
+            className="approval-banner"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/setup')}
+          >
+            <span style={{ flex: 1 }}>
+              Finish setting up your profile — pick a handle to be visible across the site.
+            </span>
+            <span style={{ color: 'var(--neon)', fontWeight: 600 }}>Set up →</span>
+          </div>
+        ) : null}
 
         <div key={location.pathname}>
           <Outlet />
