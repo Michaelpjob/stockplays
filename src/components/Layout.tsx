@@ -62,6 +62,9 @@ export default function Layout() {
 
       <main>
         <div className="top-header">
+          <NavLink to="/" className="brand-mobile">
+            Plays
+          </NavLink>
           {isSignedIn && user ? (
             <>
               <button

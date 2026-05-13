@@ -34,6 +34,9 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_FINNHUB_KEY: ${{ secrets.VITE_FINNHUB_KEY }}
           VITE_SHOW_BUILDER: ${{ secrets.VITE_SHOW_BUILDER }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
+          VITE_PLAUSIBLE_DOMAIN: ${{ secrets.VITE_PLAUSIBLE_DOMAIN }}
         run: npm run build
 
       # SPA fallback: copy index.html to 404.html so deep links work on Pages.
