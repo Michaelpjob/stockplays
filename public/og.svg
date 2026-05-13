@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="0%" r="80%">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="60%" stop-color="#0b0b0b"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="22%" r="35%">
+      <stop offset="0%" stop-color="#d4ff3a" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#d4ff3a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- Logo -->
+  <g transform="translate(80,80)">
+    <text x="0" y="0"
+          font-family="Fraunces, 'Times New Roman', Georgia, serif"
+          font-size="44" font-weight="400" fill="#ffffff"
+          letter-spacing="-1.1">Plays</text>
+    <circle cx="148" cy="-14" r="9" fill="#d4ff3a"/>
+  </g>
+
+  <!-- Headline -->
+  <text x="80" y="320"
+        font-family="Fraunces, 'Times New Roman', Georgia, serif"
+        font-size="92" font-weight="300" fill="#ffffff"
+        letter-spacing="-2.6">A thesis. A basket.</text>
+  <text x="80" y="425"
+        font-family="Fraunces, 'Times New Roman', Georgia, serif"
+        font-size="92" font-weight="300" fill="#ffffff"
+        letter-spacing="-2.6">A <tspan fill="#d4ff3a">benchmark</tspan>.</text>
+
+  <!-- Subline -->
+  <text x="80" y="510"
+        font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="22" font-weight="500" fill="#9a9a9a"
+        letter-spacing="-0.3">Curated thematic stock bundles, tracked against real benchmarks.</text>
+
+  <!-- Tickers strip -->
+  <g font-family="'JetBrains Mono', ui-monospace, monospace" font-size="14" font-weight="500" fill="#e4e4e4">
+    <g transform="translate(80,580)">
+      <rect x="0" y="-20" width="80" height="28" rx="4" fill="#141414" stroke="#1f1f1f"/>
+      <text x="40" y="0" text-anchor="middle">NVDA 17%</text>
+    </g>
+    <g transform="translate(170,580)">
+      <rect x="0" y="-20" width="80" height="28" rx="4" fill="#141414" stroke="#1f1f1f"/>
+      <text x="40" y="0" text-anchor="middle">TSM 14%</text>
+    </g>
+    <g transform="translate(260,580)">
+      <rect x="0" y="-20" width="80" height="28" rx="4" fill="#141414" stroke="#1f1f1f"/>
+      <text x="40" y="0" text-anchor="middle">AVGO 12%</text>
+    </g>
+    <g transform="translate(350,580)">
+      <rect x="0" y="-20" width="80" height="28" rx="4" fill="#141414" stroke="#1f1f1f"/>
+      <text x="40" y="0" text-anchor="middle">MSFT 11%</text>
+    </g>
+    <g transform="translate(440,580)">
+      <rect x="0" y="-20" width="80" height="28" rx="4" fill="#141414" stroke="#1f1f1f"/>
+      <text x="40" y="0" text-anchor="middle">+5 more</text>
+    </g>
+  </g>
+</svg>
