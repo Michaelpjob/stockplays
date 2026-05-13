@@ -2,15 +2,20 @@ import { useMemo, useState } from 'react';
 import { useAppState } from '../state/AppState';
 import PlayCard from '../components/PlayCard';
 import SubscribeModal from '../components/SubscribeModal';
+import { usePageTitle } from '../lib/usePageTitle';
 import type { Play } from '../lib/types';
 import { Link } from 'react-router-dom';
 
 type Tab = 'created' | 'subscribed' | 'drafts';
 
+const SHOW_BUILDER = import.meta.env.VITE_SHOW_BUILDER === 'true';
+
 export default function MyPlays() {
   const { plays, subscribed, createdByMe, isSignedIn, openAuthModal } = useAppState();
-  const [tab, setTab] = useState<Tab>('created');
+  const [tab, setTab] = useState<Tab>(SHOW_BUILDER ? 'created' : 'subscribed');
   const [subscribingTo, setSubscribingTo] = useState<Play | null>(null);
+
+  usePageTitle('My Plays');
 
   const visible = useMemo(() => {
     if (tab === 'subscribed') return plays.filter((p) => subscribed.has(p.id));
@@ -53,17 +58,19 @@ export default function MyPlays() {
         </div>
       </div>
 
-      <div className="controls-row">
-        {(['created', 'subscribed', 'drafts'] as Tab[]).map((t) => (
-          <button
-            key={t}
-            className={`chip${tab === t ? ' active' : ''}`}
-            onClick={() => setTab(t)}
-          >
-            {t === 'created' ? 'Created' : t === 'subscribed' ? 'Subscribed' : 'Drafts'}
-          </button>
-        ))}
-      </div>
+      {SHOW_BUILDER ? (
+        <div className="controls-row">
+          {(['created', 'subscribed', 'drafts'] as Tab[]).map((t) => (
+            <button
+              key={t}
+              className={`chip${tab === t ? ' active' : ''}`}
+              onClick={() => setTab(t)}
+            >
+              {t === 'created' ? 'Created' : t === 'subscribed' ? 'Subscribed' : 'Drafts'}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {visible.length === 0 ? (
         <div className="empty-state">

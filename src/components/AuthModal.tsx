@@ -78,7 +78,14 @@ export default function AuthModal() {
       provider: 'google',
       options: { redirectTo: window.location.origin + window.location.pathname },
     });
-    if (error) setMsg(error.message);
+    if (error) {
+      const m = error.message.toLowerCase();
+      if (m.includes('not enabled') || m.includes('unsupported provider')) {
+        setMsg('Google sign-in is being set up. Use email + password for now.');
+      } else {
+        setMsg(error.message);
+      }
+    }
     setWorking(false);
   }
 
