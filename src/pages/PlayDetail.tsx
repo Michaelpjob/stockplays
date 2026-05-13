@@ -8,7 +8,8 @@ import SubscribeModal from '../components/SubscribeModal';
 import Sparkline from '../components/Sparkline';
 import HoldingRow from '../components/HoldingRow';
 import ReportModal from '../components/ReportModal';
-import type { DiscussionItem } from '../lib/types';
+import DissertationModal from '../components/DissertationModal';
+import type { DiscussionItem, Play } from '../lib/types';
 
 type Win = '1m' | '3m' | 'ytd' | '1y' | 'inception';
 
@@ -263,7 +264,7 @@ export default function PlayDetail() {
       ) : null}
 
       <Discussion
-        playId={play.id}
+        play={play}
         items={play.discussion}
         commentVotes={commentVotes}
         onVote={voteComment}
@@ -298,22 +299,46 @@ function winValueFor(ytd: number, inceptionISO: string): number {
 }
 
 interface DiscussionProps {
-  playId: string;
+  play: Play;
   items: DiscussionItem[];
   commentVotes: Record<string, 1 | -1>;
   onVote: (id: string, vote: 1 | -1) => void;
 }
 
-function Discussion({ playId, items: initialItems, commentVotes, onVote }: DiscussionProps) {
+function Discussion({ play, items: initialItems, commentVotes, onVote }: DiscussionProps) {
   const { user, isSignedIn, openAuthModal, profileNeedsSetup } = useAppState();
   const [items, setItems] = useState<DiscussionItem[]>(initialItems);
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [reporting, setReporting] = useState<DiscussionItem | null>(null);
+  const [dissertationOpen, setDissertationOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     setItems(initialItems);
   }, [initialItems]);
+
+  const playId = play.id;
+
+  function shareLink(it: DiscussionItem) {
+    const url = `${window.location.origin}${window.location.pathname}#discussion-${it.id}`;
+    navigator.clipboard.writeText(url).catch(() => {
+      /* ignore */
+    });
+    setCopiedId(it.id);
+    setTimeout(() => setCopiedId(null), 1800);
+  }
+
+  function startReply(it: DiscussionItem) {
+    if (!isSignedIn) {
+      openAuthModal();
+      return;
+    }
+    setDraft((prev) =>
+      prev.includes(`@${it.author}`) ? prev : `@${it.author} ${prev}`.trimStart() + ' '
+    );
+    document.querySelector<HTMLTextAreaElement>('.discussion-compose textarea')?.focus();
+  }
 
   const canCompose = isSignedIn && !profileNeedsSetup;
   const composeHint = !isSignedIn
@@ -382,8 +407,27 @@ function Discussion({ playId, items: initialItems, commentVotes, onVote }: Discu
         }
         onClose={() => setReporting(null)}
       />
+      <DissertationModal
+        open={dissertationOpen}
+        play={play}
+        onClose={() => setDissertationOpen(false)}
+        onPosted={(item) => setItems((prev) => [item, ...prev])}
+      />
       <div className="discussion-header">
         <h3>Discussion{items.length ? ` · ${items.length}` : ''}</h3>
+        <button
+          className="btn"
+          style={{ flex: '0 0 auto', padding: '7px 16px', fontSize: 12.5 }}
+          onClick={() => {
+            if (!isSignedIn) {
+              openAuthModal();
+              return;
+            }
+            setDissertationOpen(true);
+          }}
+        >
+          ✎ Write a dissertation
+        </button>
       </div>
 
       <div
@@ -456,8 +500,10 @@ function Discussion({ playId, items: initialItems, commentVotes, onVote }: Discu
                 {it.title ? <div className="disc-title">{it.title}</div> : null}
                 <div className="disc-text">{it.body}</div>
                 <div className="disc-actions">
-                  <a>Reply</a>
-                  <a>Share</a>
+                  <a onClick={() => startReply(it)}>Reply</a>
+                  <a onClick={() => shareLink(it)}>
+                    {copiedId === it.id ? '✓ Link copied' : 'Share'}
+                  </a>
                   <a onClick={() => setReporting(it)}>Report</a>
                 </div>
               </div>
