@@ -62,7 +62,17 @@ async function fetchPolygonBars(ticker, fromDate, toDate) {
   return data.results.map((r) => ({
     date: new Date(r.t).toISOString().slice(0, 10),
     close: r.c,
+    high: r.h,
+    low: r.l,
   }));
+}
+
+async function fetchPolygonReference(ticker) {
+  const url = `https://api.polygon.io/v3/reference/tickers/${encodeURIComponent(ticker)}?apiKey=${POLYGON_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.results ?? null;
 }
 
 async function upsertPrices(client, ticker, bars) {
@@ -94,22 +104,42 @@ async function refreshTicker(client, ticker, fromDate, toDate) {
 
   await upsertPrices(client, ticker, bars);
 
-  // Also refresh the snapshot fields in public.stocks (price, ytd) so list
-  // views don't need a join to stock_prices.
+  // Compute the snapshot fields from the bars.
   const latest = bars[bars.length - 1];
   const yearStart = `${new Date().getFullYear()}-01-01`;
   const ytdBar = bars.find((b) => b.date >= yearStart) ?? bars[0];
   const ytd = ytdBar ? ((latest.close / ytdBar.close) - 1) * 100 : 0;
-  // dayChg = today vs prior trading day.
   const dayChg =
-    bars.length >= 2
-      ? ((latest.close / bars[bars.length - 2].close) - 1) * 100
-      : 0;
+    bars.length >= 2 ? ((latest.close / bars[bars.length - 2].close) - 1) * 100 : 0;
+
+  // Trailing 52 weeks of trading days (≈260 sessions).
+  const trailing = bars.slice(-260);
+  const w52H = Math.max(...trailing.map((b) => b.high ?? b.close));
+  const w52L = Math.min(...trailing.map((b) => b.low ?? b.close));
+
+  // Reference data: name, market cap, sector. One extra Polygon call per
+  // ticker. Free tier limit isn't a concern with the Starter plan.
+  const ref = await fetchPolygonReference(ticker);
+  const marketCapB = ref?.market_cap ? Number(ref.market_cap) / 1e9 : null;
+  const refName = ref?.name ?? null;
+
   await client.query(
     `update public.stocks
-     set price = $1, ytd = $2, day_chg = $3, updated_at = now()
-     where ticker = $4`,
-    [latest.close, ytd.toFixed(2), dayChg.toFixed(2), ticker]
+     set price = $1, ytd = $2, day_chg = $3, w52_high = $4, w52_low = $5,
+         market_cap_b = coalesce($6, market_cap_b),
+         name = coalesce($7, name),
+         updated_at = now()
+     where ticker = $8`,
+    [
+      latest.close,
+      ytd.toFixed(2),
+      dayChg.toFixed(2),
+      w52H.toFixed(2),
+      w52L.toFixed(2),
+      marketCapB?.toFixed(2) ?? null,
+      refName,
+      ticker,
+    ]
   );
 
   return latest;
