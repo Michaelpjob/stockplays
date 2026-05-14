@@ -1,0 +1,39 @@
+name: Apply a single migration file
+
+on:
+  workflow_dispatch:
+    inputs:
+      file:
+        description: 'Filename inside supabase/migrations/ (e.g. 0008_basket_expansion.sql)'
+        required: true
+      confirm:
+        description: 'Type "yes" to apply'
+        required: true
+        default: 'no'
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'yes' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Apply migration
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          F="supabase/migrations/${{ github.event.inputs.file }}"
+          if [ ! -f "$F" ]; then
+            echo "::error::file not found: $F"
+            exit 1
+          fi
+          psql "$DB_URL" --set ON_ERROR_STOP=on -f "$F"
+
+      - name: Verify counts
+        run: |
+          psql "${{ secrets.SUPABASE_DB_URL }}" -c "select count(*) as stock_count from public.stocks;"
+          psql "${{ secrets.SUPABASE_DB_URL }}" -c "select count(*) as play_count from public.plays;"
+          psql "${{ secrets.SUPABASE_DB_URL }}" -c "select count(*) as holdings_count from public.play_holdings;"
