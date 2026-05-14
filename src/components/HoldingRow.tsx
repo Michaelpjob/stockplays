@@ -7,11 +7,14 @@ interface Props {
   weight: number;
   /** Max weight across the basket — used to scale the bar fill. */
   maxWeight?: number;
+  /** Names of other approved plays that include this ticker. */
+  alsoIn?: string[];
 }
 
-export default function HoldingRow({ ticker, weight, maxWeight = 35 }: Props) {
+export default function HoldingRow({ ticker, weight, maxWeight = 35, alsoIn }: Props) {
   const { stock, loading } = useStockLookup(ticker);
   const { openStockPanel } = useAppState();
+  const overlapCount = alsoIn?.length ?? 0;
 
   return (
     <tr onClick={() => openStockPanel(ticker)}>
@@ -22,6 +25,14 @@ export default function HoldingRow({ ticker, weight, maxWeight = 35 }: Props) {
             {loading ? '…' : stock?.name ?? ''}
           </span>
         </div>
+        {overlapCount > 0 ? (
+          <div
+            className="also-in"
+            title={alsoIn!.join(' · ')}
+          >
+            ↗ Also in {overlapCount === 1 ? alsoIn![0] : `${overlapCount} plays`}
+          </div>
+        ) : null}
       </td>
       <td className="num">
         {weight}%

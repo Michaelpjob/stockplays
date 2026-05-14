@@ -821,6 +821,19 @@ main {
   font-weight: 500;
 }
 
+.also-in {
+  display: inline-block;
+  font-size: 10.5px;
+  color: var(--accent);
+  background: var(--neon-dim);
+  padding: 2px 7px;
+  border-radius: 3px;
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+  cursor: help;
+}
+
 /* ============================================================
    UPDATES
    ============================================================ */

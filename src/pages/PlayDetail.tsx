@@ -40,6 +40,23 @@ export default function PlayDetail() {
 
   usePageTitle(play?.name);
 
+  // For each ticker, list the OTHER approved plays it appears in. Surfaces
+  // cross-basket overlap so subscribers can see where the same name appears
+  // under a different thesis with a different weight.
+  const overlaps = useMemo<Record<string, string[]>>(() => {
+    if (!play) return {};
+    const m: Record<string, string[]> = {};
+    for (const p of plays) {
+      if (p.id === play.id) continue;
+      if (p.status && p.status !== 'approved') continue;
+      for (const h of p.holdings) {
+        if (!m[h.ticker]) m[h.ticker] = [];
+        m[h.ticker].push(p.name);
+      }
+    }
+    return m;
+  }, [plays, play]);
+
   if (!play) {
     return (
       <div className="empty-state">
@@ -243,6 +260,7 @@ export default function PlayDetail() {
                 ticker={h.ticker}
                 weight={h.weight}
                 maxWeight={Math.max(...play.holdings.map((x) => x.weight))}
+                alsoIn={overlaps[h.ticker]}
               />
             ))}
           </tbody>
