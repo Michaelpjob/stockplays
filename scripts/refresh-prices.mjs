@@ -29,17 +29,27 @@ if (!POLYGON_KEY || !DB_URL) {
   process.exit(1);
 }
 
-const BENCHMARK_TICKERS = ['SPY', 'SMH', 'XLE', 'HACK', 'XBI', 'ITA', 'XLI'];
+const BENCHMARK_TICKERS = [
+  'SPY', 'SMH', 'XLE', 'HACK', 'XBI', 'ITA', 'XLI',
+  // 0008_basket_expansion additions:
+  'XLU', 'CIBR', 'BBH', 'BOTZ', 'SOXX', 'QQQ',
+];
 
 // Map the human-readable `plays.benchmark` string to a single ticker we
 // have prices for. First-listed ticker wins; default to SPY.
 const BENCHMARK_MAP = new Map([
   ['SMH / SOXX', 'SMH'],
   ['XLE / XLU', 'XLE'],
+  ['XLU / GRID', 'XLU'],
   ['HACK', 'HACK'],
+  ['CIBR / HACK', 'CIBR'],
   ['XBI / IBB', 'XBI'],
+  ['BBH / XLV', 'BBH'],
   ['ITA', 'ITA'],
+  ['ITA / PPA', 'ITA'],
   ['XLI', 'XLI'],
+  ['BOTZ / ROBO', 'BOTZ'],
+  ['SOXX / QQQ', 'SOXX'],
 ]);
 
 function dateOnly(d) {
@@ -117,19 +127,24 @@ async function refreshTicker(client, ticker, fromDate, toDate) {
   const w52H = Math.max(...trailing.map((b) => b.high ?? b.close));
   const w52L = Math.min(...trailing.map((b) => b.low ?? b.close));
 
-  // Reference data: name, market cap, sector. One extra Polygon call per
-  // ticker. Free tier limit isn't a concern with the Starter plan.
+  // Reference data: name, market cap, exchange, sector.
   const ref = await fetchPolygonReference(ticker);
   const marketCapB = ref?.market_cap ? Number(ref.market_cap) / 1e9 : null;
   const refName = ref?.name ?? null;
+  const refExchange = exchangeFromMic(ref?.primary_exchange);
+  // Polygon's "type" field gives ETF / CS (common stock) / ADRC etc.
+  // sic_description is the SIC industry, which is close enough for our sector field.
+  const refSector = ref?.sic_description ?? null;
 
   await client.query(
     `update public.stocks
      set price = $1, ytd = $2, day_chg = $3, w52_high = $4, w52_low = $5,
          market_cap_b = coalesce($6, market_cap_b),
          name = coalesce($7, name),
+         exchange = coalesce($8, exchange),
+         sector = coalesce($9, sector),
          updated_at = now()
-     where ticker = $8`,
+     where ticker = $10`,
     [
       latest.close,
       ytd.toFixed(2),
@@ -138,11 +153,29 @@ async function refreshTicker(client, ticker, fromDate, toDate) {
       w52L.toFixed(2),
       marketCapB?.toFixed(2) ?? null,
       refName,
+      refExchange,
+      refSector,
       ticker,
     ]
   );
 
   return latest;
+}
+
+// Polygon returns primary_exchange as a MIC code; map the common ones to
+// readable strings the UI displays. Unknown codes are returned as-is.
+function exchangeFromMic(mic) {
+  if (!mic) return null;
+  const map = {
+    XNYS: 'NYSE',
+    XNAS: 'NASDAQ',
+    ARCX: 'NYSE Arca',
+    BATS: 'BATS',
+    XASE: 'AMEX',
+    XCBO: 'CBOE',
+    OTCM: 'OTC',
+  };
+  return map[mic] ?? mic;
 }
 
 function startOfWindow(win) {
