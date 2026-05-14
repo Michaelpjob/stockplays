@@ -8,10 +8,12 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { Play, Profile } from '../lib/types';
+import type { Play, Profile, Stock } from '../lib/types';
 import { SEED_PLAYS } from '../data/seedPlays';
+import { STOCK_UNIVERSE } from '../data/stockUniverse';
 import { isDemoMode, supabase } from '../lib/supabase';
 import { fetchPlays } from '../lib/playQueries';
+import { fetchAllStocks } from '../lib/stockQueries';
 import { fetchProfile, isProfileIncomplete } from '../lib/profileQueries';
 import {
   dbSubscribe,
@@ -90,6 +92,9 @@ interface AppStateValue {
   stockPanelTicker: string | null;
   openStockPanel: (ticker: string) => void;
   closeStockPanel: () => void;
+
+  /** Real-time DB-backed stocks map. Falls back to seeded universe in demo mode. */
+  stocksByTicker: Record<string, Stock>;
 }
 
 const AppStateContext = createContext<AppStateValue | null>(null);
@@ -179,6 +184,26 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [stockPanelTicker, setStockPanelTicker] = useState<string | null>(null);
+
+  // Stocks map: seeded with the static universe so demo mode + initial render
+  // both have data. Replaced by the DB snapshot once Supabase responds.
+  const [stocksByTicker, setStocksByTicker] = useState<Record<string, Stock>>(
+    () => ({ ...STOCK_UNIVERSE })
+  );
+
+  useEffect(() => {
+    if (isDemoMode) return;
+    let cancelled = false;
+    fetchAllStocks().then((rows) => {
+      if (cancelled || rows.length === 0) return;
+      const map: Record<string, Stock> = {};
+      for (const s of rows) map[s.ticker] = s;
+      setStocksByTicker(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Track current user id in a ref so async writes use the latest value.
   const userIdRef = useRef<string | null>(null);
@@ -478,6 +503,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       stockPanelTicker,
       openStockPanel: setStockPanelTicker,
       closeStockPanel: () => setStockPanelTicker(null),
+      stocksByTicker,
     }),
     [
       plays,
@@ -506,6 +532,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setPref,
       authModalOpen,
       stockPanelTicker,
+      stocksByTicker,
     ]
   );
 

@@ -1,60 +1,29 @@
 import type { Stock } from './types';
-import { getStock as getSeedStock } from '../data/stockUniverse';
 
 const KEY = import.meta.env.VITE_FINNHUB_KEY as string | undefined;
 
-// Two-layer cache: in-memory for the session, localStorage for cross-session.
-// TTL is long-ish because free Finnhub returns real-time during market hours;
-// after-hours it doesn't change, and rate limits matter more than freshness.
-const TTL_MS = 60 * 60 * 1000; // 1 hour
-const LS_PREFIX = 'plays.stock.v1.';
-
+// Per-session memory cache so repeated lookups of the same ticker within a
+// session don't re-hit Finnhub. Cross-session caching is unnecessary now that
+// the primary source is the Supabase stocks table (refreshed nightly).
 const mem = new Map<string, { stock: Stock; ts: number }>();
-
-function readLS(ticker: string): Stock | null {
-  try {
-    const raw = localStorage.getItem(LS_PREFIX + ticker);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { stock: Stock; ts: number };
-    if (Date.now() - parsed.ts > TTL_MS) return null;
-    return parsed.stock;
-  } catch {
-    return null;
-  }
-}
-
-function writeLS(stock: Stock) {
-  try {
-    localStorage.setItem(LS_PREFIX + stock.ticker, JSON.stringify({ stock, ts: Date.now() }));
-  } catch {
-    /* ignore quota errors */
-  }
-}
+const TTL_MS = 60 * 60 * 1000;
 
 /**
- * Resolve a ticker through the cheapest layer that has data:
- *   1. seeded universe (free, instant) — for the 29 tickers shipped with the app
- *   2. localStorage cache (free, instant, 1h TTL)
- *   3. in-memory session cache
- *   4. Finnhub live API — only when nothing else has it
+ * Fetch a single ticker's stock data via the Finnhub live API.
  *
- * Returns null if no provider has the ticker or VITE_FINNHUB_KEY is unset.
+ * This is the *fallback* path for tickers that aren't in the canonical
+ * Supabase stocks table — for example, an arbitrary US ticker a user types
+ * into the Builder. The DB cache is consulted first by `useStockLookup`,
+ * which reads from AppState; we only hit Finnhub when the DB has nothing.
+ *
+ * Returns null when the Finnhub key isn't set or the API fails.
  */
 export async function lookupStock(ticker: string): Promise<Stock | null> {
   const t = ticker.trim().toUpperCase();
   if (!t) return null;
 
-  const seed = getSeedStock(t);
-  if (seed) return seed;
-
   const memHit = mem.get(t);
   if (memHit && Date.now() - memHit.ts < TTL_MS) return memHit.stock;
-
-  const lsHit = readLS(t);
-  if (lsHit) {
-    mem.set(t, { stock: lsHit, ts: Date.now() });
-    return lsHit;
-  }
 
   if (!KEY) return null;
 
@@ -66,19 +35,18 @@ export async function lookupStock(ticker: string): Promise<Stock | null> {
     if (!quoteRes.ok || !profRes.ok) return null;
 
     const quote = (await quoteRes.json()) as {
-      c?: number; // current price
-      d?: number; // change
-      dp?: number; // % change
-      h?: number; // today's high
-      l?: number; // today's low
-      pc?: number; // previous close
+      c?: number;
+      d?: number;
+      dp?: number;
+      h?: number;
+      l?: number;
+      pc?: number;
     };
     const prof = (await profRes.json()) as {
       name?: string;
       exchange?: string;
       finnhubIndustry?: string;
-      marketCapitalization?: number; // in millions USD
-      country?: string;
+      marketCapitalization?: number;
     };
 
     if (!quote.c || !prof.name) return null;
@@ -97,7 +65,6 @@ export async function lookupStock(ticker: string): Promise<Stock | null> {
     };
 
     mem.set(t, { stock, ts: Date.now() });
-    writeLS(stock);
     return stock;
   } catch {
     return null;

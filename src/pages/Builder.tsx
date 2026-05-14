@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAppState } from '../state/AppState';
 import { CATEGORIES, type Category, type Holding, type Play, type Rebalance } from '../lib/types';
 import { CATEGORY_BENCHMARKS } from '../lib/categories';
-import { STOCK_UNIVERSE } from '../data/stockUniverse';
 import { fmtUsd, normalizeWeights, today } from '../lib/format';
 import { useDebouncedStockLookup } from '../lib/useStockLookup';
 import { hasLiveLookup } from '../lib/stockLookup';
@@ -13,7 +12,7 @@ const REBALANCES: Rebalance[] = ['Quarterly', 'Monthly', 'Threshold-triggered', 
 export default function Builder() {
   const { editId } = useParams();
   const navigate = useNavigate();
-  const { plays, upsertPlay, user, isSignedIn, openAuthModal } = useAppState();
+  const { plays, upsertPlay, user, isSignedIn, openAuthModal, stocksByTicker } = useAppState();
 
   const editing = editId ? plays.find((p) => p.id === editId) : undefined;
 
@@ -38,24 +37,23 @@ export default function Builder() {
   const results = useMemo(() => {
     if (!search.trim()) return [];
     const q = search.toUpperCase();
-    return Object.values(STOCK_UNIVERSE)
+    return Object.values(stocksByTicker)
       .filter(
         (s) =>
           (s.ticker.includes(q) || s.name.toUpperCase().includes(q)) &&
           !holdings.find((h) => h.ticker === s.ticker)
       )
       .slice(0, 8);
-  }, [search, holdings]);
+  }, [search, holdings, stocksByTicker]);
 
-  // If the user typed something that looks like a ticker and nothing matches
-  // in the seeded universe, try to resolve it via the live data provider.
+  // If nothing matches the canonical stocks table, try to resolve via Finnhub.
   const customTicker = useMemo(() => {
     const q = search.trim().toUpperCase();
     if (!/^[A-Z]{1,5}(\.[A-Z])?$/.test(q)) return null;
     if (holdings.find((h) => h.ticker === q)) return null;
-    if (STOCK_UNIVERSE[q]) return null;
+    if (stocksByTicker[q]) return null;
     return q;
-  }, [search, holdings]);
+  }, [search, holdings, stocksByTicker]);
 
   // Debounced live lookup against Finnhub for the typed ticker. Skips the
   // network call when the seeded universe already has it.
@@ -282,7 +280,7 @@ export default function Builder() {
             ) : (
               <div className="builder-holdings">
                 {holdings.map((h) => {
-                  const s = STOCK_UNIVERSE[h.ticker];
+                  const s = stocksByTicker[h.ticker];
                   return (
                     <div key={h.ticker} className="builder-holding">
                       <div className="ticker-pill-sym">{h.ticker}</div>
